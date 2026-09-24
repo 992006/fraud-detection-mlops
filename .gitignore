@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Secrets
+.env
+
+# ML artifacts
+mlruns/
+models/*
+!models/.gitkeep
+
+# Data (We will use DVC for this later)
+data/raw/*
+data/processed/*
+data/external/*
+
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/external/.gitkeep
+
+# DVC
+.dvc/cache/
+.dvc/tmp/
+
+# Reports
+reports/*
+!reports/.gitkeep
+
+# IDE
+.vscode/
+.idea/
