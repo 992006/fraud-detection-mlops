@@ -38,3 +38,5 @@ reports/*
 # IDE
 .vscode/
 .idea/
+
+*.db
