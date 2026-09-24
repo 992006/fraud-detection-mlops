@@ -1,12 +1,17 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-import mlflow.sklearn
 import joblib
 import pandas as pd
 import json
 
-app = FastAPI(title="Fraud Detection API", version="2.0.0")
+try:
+    import mlflow.sklearn
+    HAS_MLFLOW = True
+except ImportError:
+    HAS_MLFLOW = False
+
+app = FastAPI(title="Fraud Detection API", version="2.1.0")
 
 ml_model = None
 scaler = None
@@ -16,18 +21,36 @@ model_name_loaded = "Unknown"
 @app.on_event("startup")
 def load_artifacts():
     global ml_model, scaler, optimal_threshold, model_name_loaded
-    try:
-        print("Loading production artifacts...")
-        ml_model = mlflow.sklearn.load_model("models:/FraudDetectionModel@Production")
-        scaler = joblib.load("models/scaler.joblib")
-        with open("reports/best_thresholds.json", "r") as f:
-            thresholds = json.load(f)
+
+    # Option 1: MLflow Model Registry (local development)
+    if HAS_MLFLOW:
+        try:
+            print("Loading model from MLflow Registry...")
+            ml_model = mlflow.sklearn.load_model("models:/FraudDetectionModel@Production")
+            scaler = joblib.load("models/scaler.joblib")
+            with open("reports/best_thresholds.json", "r") as f:
+                thresholds = json.load(f)
             best_model = max(thresholds, key=lambda k: thresholds[k]['best_f1'])
             optimal_threshold = thresholds[best_model]['best_threshold']
             model_name_loaded = best_model
-        print(f"Loaded Production Model: {model_name_loaded} (threshold {optimal_threshold})")
+            print(f"Loaded from registry: {model_name_loaded} (threshold {optimal_threshold})")
+            return
+        except Exception as e:
+            print(f"Registry not available ({e}). Trying committed artifacts...")
+
+    # Option 2: committed artifacts (cloud deployment)
+    try:
+        print("Loading committed artifacts...")
+        ml_model = joblib.load("artifacts/champion.joblib")
+        scaler = joblib.load("artifacts/scaler.joblib")
+        with open("artifacts/thresholds.json", "r") as f:
+            thresholds = json.load(f)
+        best_model = max(thresholds, key=lambda k: thresholds[k]['best_f1'])
+        optimal_threshold = thresholds[best_model]['best_threshold']
+        model_name_loaded = best_model + " (deployed)"
+        print(f"Loaded deployed artifacts: {model_name_loaded} (threshold {optimal_threshold})")
     except Exception as e:
-        print(f"Model artifacts not available ({e}). /predict will return 503.")
+        print(f"Artifacts not available ({e}). /predict will return 503.")
 
 class Transaction(BaseModel):
     Time: float

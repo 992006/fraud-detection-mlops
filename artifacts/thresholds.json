@@ -1,0 +1,20 @@
+{
+  "Logistic Regression": {
+    "best_threshold": 0.95,
+    "precision_at_best": 0.3919,
+    "recall_at_best": 0.8878,
+    "best_f1": 0.5437
+  },
+  "Random Forest": {
+    "best_threshold": 0.3,
+    "precision_at_best": 0.9222,
+    "recall_at_best": 0.8469,
+    "best_f1": 0.883
+  },
+  "XGBoost": {
+    "best_threshold": 0.85,
+    "precision_at_best": 0.7523,
+    "recall_at_best": 0.8367,
+    "best_f1": 0.7923
+  }
+}
