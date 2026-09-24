@@ -10,7 +10,10 @@ LEGIT = {"Time":1453.0,"V1":-1.359,"V2":-0.072,"V3":2.536,"V4":1.378,"V5":-0.338
 
 def get(path, timeout=120):
     with urllib.request.urlopen(BASE + path, timeout=timeout) as r:
-        return r.status, json.load(r)
+        # If the server sends JSON, parse it. If it sends HTML, just read the text.
+        if "json" in r.headers.get("Content-Type", ""):
+            return r.status, json.load(r)
+        return r.status, r.read().decode("utf-8")
 
 def post(path, payload, timeout=120):
     req = urllib.request.Request(BASE + path, data=json.dumps(payload).encode(),
