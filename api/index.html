@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fraud Detection System</title>
+<style>
+  :root{ --bg1:#0b1220; --bg2:#111a2e; --card:#151f36; --line:#243250;
+         --text:#e6edf7; --muted:#8ea0bf; --accent:#4f8cff; }
+  *{box-sizing:border-box; margin:0; padding:0; font-family:'Segoe UI',system-ui,sans-serif;}
+  body{ min-height:100vh;
+        background: radial-gradient(1200px 600px at 80% -10%, #1b2c55 0%, transparent 60%),
+                    linear-gradient(160deg, var(--bg1), var(--bg2));
+        color:var(--text); display:flex; align-items:center; justify-content:center; padding:32px 16px; }
+  .card{width:100%; max-width:760px; background:rgba(21,31,54,.92); border:1px solid var(--line);
+        border-radius:20px; padding:34px 36px; box-shadow:0 24px 60px rgba(0,0,0,.45);}
+  .head{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+  h1{font-size:26px;}
+  .pill{font-size:12px; padding:6px 12px; border-radius:999px; border:1px solid var(--line); color:var(--muted);}
+  .pill.ok{color:#baf7d0; border-color:#1d5c3a; background:#0d2b1c;}
+  .pill.bad{color:#fecaca; border-color:#7f1d1d; background:#2b0d0d;}
+  .sub{color:var(--muted); font-size:14px; margin-bottom:26px;}
+  .primary{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px;}
+  .field label{display:block; font-size:13px; color:var(--muted); margin-bottom:8px;}
+  .field input{width:100%; padding:14px 16px; font-size:18px; border-radius:12px;
+       border:1px solid var(--line); background:#0d1526; color:var(--text); outline:none; transition:.2s;}
+  .field input:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(79,140,255,.2);}
+  details{border:1px solid var(--line); border-radius:12px; padding:12px 16px; margin-bottom:20px; background:#0d1526;}
+  summary{cursor:pointer; color:var(--muted); font-size:14px; user-select:none;}
+  .vgrid{display:grid; grid-template-columns:repeat(7,1fr); gap:10px; margin-top:14px;}
+  .vgrid .field label{font-size:11px; margin-bottom:4px;}
+  .vgrid input{padding:8px; font-size:13px;}
+  .actions{display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-bottom:8px;}
+  button{padding:13px 26px; border:none; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; transition:.2s;}
+  .predict{background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; box-shadow:0 8px 20px rgba(59,130,246,.35);}
+  .predict:hover{transform:translateY(-2px);}
+  .sample{background:#1c2a47; color:var(--text); border:1px solid var(--line);}
+  .sample:hover{background:#24365c;}
+  #result{display:none; margin-top:26px; border-radius:16px; padding:24px; text-align:center; border:1px solid;}
+  #result.fraud{background:#2b0d0d; border-color:#7f1d1d;}
+  #result.legit{background:#0d2b1c; border-color:#1d5c3a;}
+  .verdict{font-size:32px; font-weight:800; letter-spacing:1px;}
+  .fraud .verdict{color:#f87171;} .legit .verdict{color:#4ade80;}
+  .barwrap{margin:18px auto 6px; max-width:420px; height:12px; background:#0d1526; border-radius:999px; position:relative;}
+  .bar{height:100%; width:0%; border-radius:999px; transition:width .6s ease;}
+  .fraud .bar{background:linear-gradient(90deg,#f59e0b,#ef4444);}
+  .legit .bar{background:linear-gradient(90deg,#22c55e,#4ade80);}
+  .tick{position:absolute; top:-4px; width:2px; height:20px; background:#fff; opacity:.85;}
+  .meta{color:var(--muted); font-size:13px; margin-top:12px;}
+  @media(max-width:640px){ .primary{grid-template-columns:1fr;} .vgrid{grid-template-columns:repeat(4,1fr);} }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="head">
+    <h1>💳 Fraud Detection System</h1>
+    <span class="pill" id="status">checking…</span>
+  </div>
+  <p class="sub">Enter the transaction <b>Time</b> and <b>Amount</b>. The PCA features (V1–V28) are pre-filled in advance — expand "Advanced" to edit them.</p>
+
+  <div class="primary">
+    <div class="field"><label>Time (seconds since first transaction)</label>
+      <input id="in_Time" type="number" step="any" value="1453"></div>
+    <div class="field"><label>Amount (USD)</label>
+      <input id="in_Amount" type="number" step="any" value="149.50"></div>
+  </div>
+
+  <details>
+    <summary>⚙️ Advanced — PCA Features V1 … V28 (pre-filled)</summary>
+    <div class="vgrid" id="vgrid"></div>
+  </details>
+
+  <div class="actions">
+    <button class="predict" id="btnPredict" onclick="predict()">🔍 Predict</button>
+    <button class="sample" onclick="loadSample(fraudSample)">Load Fraud Sample</button>
+    <button class="sample" onclick="loadSample(legitSample)">Load Legit Sample</button>
+  </div>
+
+  <div id="result">
+    <div class="verdict" id="verdict"></div>
+    <div class="barwrap"><div class="bar" id="bar"></div><div class="tick" id="tick" style="left:30%"></div></div>
+    <div class="meta" id="meta"></div>
+  </div>
+</div>
+
+<script>
+const vfields = Array.from({length:28},(_,i)=>"V"+(i+1));
+const fraudSample = {"Time":406.0,"V1":-2.3122265423263,"V2":1.95199201064158,"V3":-1.60985073229769,"V4":3.9979055875468,"V5":-0.522187864667764,"V6":-1.42654531920595,"V7":-2.53738730624579,"V8":1.39165724829804,"V9":-2.77008927719433,"V10":-2.77227214465915,"V11":3.20203320709635,"V12":-2.89990738849473,"V13":-0.595221881324605,"V14":-4.28925378244217,"V15":0.389724120274487,"V16":-1.14074717980657,"V17":-2.83005567450437,"V18":-0.0168224681808257,"V19":0.416955705037907,"V20":0.126910559061474,"V21":0.517232370861764,"V22":-0.0350493686052974,"V23":-0.465211076182388,"V24":0.320198198514526,"V25":0.0445191674731724,"V26":0.177839798284401,"V27":0.261145002567677,"V28":-0.143275874698919,"Amount":0.0};
+const legitSample = {"Time":1453.0,"V1":-1.359,"V2":-0.072,"V3":2.536,"V4":1.378,"V5":-0.338,"V6":0.462,"V7":0.239,"V8":0.098,"V9":0.363,"V10":0.155,"V11":-0.213,"V12":-0.035,"V13":-0.143,"V14":-0.112,"V15":-0.214,"V16":0.141,"V17":-0.069,"V18":0.059,"V19":-0.042,"V20":-0.015,"V21":-0.053,"V22":-0.132,"V23":-0.028,"V24":0.112,"V25":0.045,"V26":0.088,"V27":0.012,"V28":0.005,"Amount":149.50};
+
+// Pre-fill V1-V28 in advance with default values
+const vgrid = document.getElementById("vgrid");
+vfields.forEach(f=>{
+  const div=document.createElement("div");
+  div.className="field";
+  div.innerHTML='<label>'+f+'</label><input id="in_'+f+'" type="number" step="any" value="'+legitSample[f]+'">';
+  vgrid.appendChild(div);
+});
+
+// Live status pill
+fetch("/health").then(r=>r.json()).then(d=>{
+  const el=document.getElementById("status");
+  if(d.model_loaded){el.textContent="● Model Loaded"; el.className="pill ok";}
+  else{el.textContent="● Model Not Loaded"; el.className="pill bad";}
+}).catch(()=>{const el=document.getElementById("status"); el.textContent="● Offline"; el.className="pill bad";});
+
+function loadSample(s){
+  document.getElementById("in_Time").value=s.Time;
+  document.getElementById("in_Amount").value=s.Amount;
+  vfields.forEach(f=>document.getElementById("in_"+f).value=s[f]);
+}
+
+async function predict(){
+  const btn=document.getElementById("btnPredict");
+  btn.disabled=true; btn.textContent="Predicting…";
+  const payload={};
+  payload.Time=parseFloat(document.getElementById("in_Time").value||0);
+  payload.Amount=parseFloat(document.getElementById("in_Amount").value||0);
+  vfields.forEach(f=>payload[f]=parseFloat(document.getElementById("in_"+f).value||0));
+  try{
+    const res=await fetch("/predict",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const box=document.getElementById("result");
+    box.style.display="block";
+    if(!res.ok){ box.className="fraud"; document.getElementById("verdict").textContent="ERROR";
+      document.getElementById("meta").textContent="Model not loaded on server."; return; }
+    const d=await res.json();
+    const fraud = d.prediction==="FRAUD";
+    box.className = fraud?"fraud":"legit";
+    document.getElementById("verdict").textContent = fraud?"⚠ FRAUD DETECTED":"✓ LEGITIMATE";
+    document.getElementById("bar").style.width=(d.fraud_probability*100)+"%";
+    document.getElementById("tick").style.left=(d.threshold_used*100)+"%";
+    document.getElementById("meta").innerHTML =
+      "Fraud probability: <b>"+(d.fraud_probability*100).toFixed(1)+"%</b> &nbsp;|&nbsp; Threshold: <b>"+
+      d.threshold_used+"</b> (white line) &nbsp;|&nbsp; Model: <b>"+d.model_used+"</b>";
+  }finally{ btn.disabled=false; btn.textContent="🔍 Predict"; }
+}
+</script>
+</body>
+</html>
